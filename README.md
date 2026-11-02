@@ -109,3 +109,15 @@ La migración 010 permite consultar el catálogo completo en una única respuest
 - Sin duplicados: el mismo archivo (SHA-256) no se acepta dos veces; un código ya importado o ya ingresado en la app no se repite. Sin código, se identifica por profesional + establecimiento + fecha de inicio. Las recargas solo completan campos vacíos; nunca sobrescriben datos ya guardados.
 - Los bloqueos importados aparecen en la misma lista con la etiqueta Archivo del sistema. Si falta código, establecimiento válido, profesional, fechas o tipo, la fila se marca en rojo con ⚠ Información incompleta. No se cuentan en Días ni en informes hasta que se registren en la app.
 - Instalación: ejecutar una sola vez `database/011_bloqueos_sistema.sql` (después de 010) en el SQL Editor de Supabase y publicar dist. Sin la migración, la app sigue funcionando y la lista simplemente no muestra bloqueos importados.
+
+## Versión 1.5
+- Menú de perfil: Perfil, Configuración, Administración de accesos (avanzada) y Cerrar sesión.
+- Inicio con filtro de establecimiento y día; registrados y vigentes del día; gráfico por establecimiento.
+- Bloqueos: "Nuevo bloqueo" junto a "Cargar bloqueos (Excel, PDF, PHP)"; ⚠ incompletos con "Completar y registrar"; tipo OTRO con especificación; pregunta MPO; agendas habilitadas sugeridas por profesional y fechas.
+- Agendas: carga manual desde imágenes (bucket privado agenda-imagenes); sin barra de "Programación cargada"; etiqueta MPO en el calendario.
+- Reportes: (a) bloqueos por establecimiento con Excel de 4 hojas y PDF; (b) cupos y (c) calidad en desarrollo.
+- Pacientes citados: enlaces al calendario (día, establecimiento, profesional) y al bloqueo.
+- Feriados: sección MPO con repetición mensual.
+- Modo de uso por perfil, contacto y burbuja de observaciones con bandeja para la cuenta avanzada.
+- Migración: `database/012_version_1_5.sql` (ya aplicada en el proyecto actual). Función opcional `supabase/functions/enviar-observacion` (requiere RESEND_API_KEY).
+- Build: copiar `.env.example` a `.env.local` antes de `pnpm build`.
