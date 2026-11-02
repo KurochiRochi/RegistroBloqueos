@@ -1,0 +1,37 @@
+{
+  "name": "bloquea-independiente",
+  "version": "1.5.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@11.25.0",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5174",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4174",
+    "test": "node tests/model.test.mjs && node tests/database.test.mjs && node tests/v11.test.mjs && node tests/patients.test.mjs && node tests/agendas.test.mjs && node tests/v13.test.mjs && node tests/v14.test.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/dm-sans": "^5.3.0",
+    "@fontsource-variable/manrope": "^5.3.0",
+    "@supabase/supabase-js": "^2.0.0",
+    "fflate": "0.8.2",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9",
+    "parse5": "^8.0.1",
+    "pdfjs-dist": "^6.4.299",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.3.0",
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "prettier": "3.6.2",
+    "typescript": "5.9.3",
+    "vite": "8.0.13"
+  }
+}

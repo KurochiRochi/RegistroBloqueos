@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {parsePatientHtml,reconstructPage,patientHeaders} from '../src/patient-parser.ts';
+const cells=['11111111-1','Persona ficticia','Comuna prueba','000000000','Dirección prueba','Agenda prueba','30/10/2026 08:00','NUEVO','1','','usuario','Nombre prueba','Sin datos reales'];
+const html='<script>throw new Error("No ejecutar")</script><img src="https://example.invalid/no-cargar"><table><tr>'+patientHeaders.map(h=>`<th>${h}</th>`).join('')+'</tr><tr>'+cells.map(c=>`<td><small>${c}</small></td>`).join('')+'</tr></table>';
+assert.deepEqual(parsePatientHtml(html),[cells]);
+assert.deepEqual(parsePatientHtml('<html>sin tabla</html>'),[]);
+const items=[...patientHeaders.map((text,i)=>({text,x:i*100,y:100})),...cells.map((text,i)=>({text,x:i*100,y:80}))];
+assert.deepEqual(reconstructPage(items),[cells]);
+assert.deepEqual(reconstructPage(items.filter(i=>i.text!=='Nombre')),[]);
+console.log('HTML inerte, tabla de 13 campos, PDF espacial y rechazo de extracción ambigua: correctos.');
