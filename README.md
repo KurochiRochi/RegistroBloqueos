@@ -121,3 +121,9 @@ La migración 010 permite consultar el catálogo completo en una única respuest
 - Modo de uso por perfil, contacto y burbuja de observaciones con bandeja para la cuenta avanzada.
 - Migración: `database/012_version_1_5.sql` (ya aplicada en el proyecto actual). Función opcional `supabase/functions/enviar-observacion` (requiere RESEND_API_KEY).
 - Build: copiar `.env.example` a `.env.local` antes de `pnpm build`.
+
+## Versión 1.5 · actualización de agendas (3 de noviembre de 2026)
+- **PDF «Gestión Agendas por Recurso»** (SISMAULE) en «Cargar agendas por archivo»: lee fecha, hora, tipo, cupos, citados, correlativo y agenda; las filas en **rojo** se guardan como agenda bloqueada y las en **negro** como activa. El profesional se toma del campo Recurso del PDF o, si viene vacío, del nombre del archivo (p. ej. `frugone.pdf` → FRUGONE ZAROR CRISTOBAL JESUS); se puede corregir antes de confirmar. Se elige el establecimiento. Al recargar, se reemplaza la programación de ese profesional y establecimiento solo en los días que cubre el archivo.
+- **Excel «BD Profesionales y Agenda»** (hojas PROFESIONAL y AGENDA): agrega los nombres que faltan al directorio y la lista de agendas. Alimenta el autocompletado de profesional y agenda en «Nuevo bloqueo» y en el ingreso manual.
+- **Ingreso manual de agenda** con la secuencia de SISMAULE: filtro (fechas, recurso, unidad, filtro de agendas) → Agendas creadas (Corr., agenda, U. Atención, fechas, cierre, estado S/N, modificar/eliminar; Agregar, Generar, Copiar y Cerrar agenda) → Detalle de agenda (día, hora, intervalo, cupos, box, botón Traslape) → Detalle/distribución de cupos (establecimiento destino, CONTROL/NUEVO, cupos). Una agenda nueva queda en estado N hasta «Generar agenda».
+- Migración: `database/013_agenda_recurso_y_manual.sql` (aplicada en el proyecto actual el 03-11-2026). Pruebas: `tests/v16.test.mjs`.

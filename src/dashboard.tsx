@@ -281,6 +281,26 @@ export function Dashboard({
       )
       .on(
         "postgres_changes",
+        { event: "*", schema: "public", table: "catalog_agendas" },
+        referenceChanged,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "manual_agendas" },
+        referenceChanged,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "manual_agenda_details" },
+        referenceChanged,
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "manual_agenda_quotas" },
+        referenceChanged,
+      )
+      .on(
+        "postgres_changes",
         { event: "*", schema: "public", table: "bloqueos" },
         changed,
       )
@@ -1120,7 +1140,32 @@ function RecordEditor({
         )
         .map((r) => [r.agenda_code, r]),
     ).values(),
+    // Agendas activas (no bloqueadas) cargadas desde el PDF por recurso.
+    ...new Map(
+      catalog.sessions
+        .filter(
+          (s) =>
+            s.establishment === form.Establecimiento &&
+            s.service_day >= String(form.Fecha_Inicio) &&
+            s.service_day <= String(form.Fecha_Termino || form.Fecha_Inicio) &&
+            !s.source_blocked &&
+            catalog.professionals.some(
+              (p) =>
+                p.id === s.professional_id &&
+                [p.name, ...(p.aliases || [])].some(
+                  (n) => n.trim().toLowerCase() === profKey,
+                ),
+            ),
+        )
+        .map((s) => [
+          s.agenda_name,
+          { agenda_code: s.agenda_name, agenda_name: s.agenda_code },
+        ]),
+    ).values(),
   ].sort((a, b) => a.agenda_name.localeCompare(b.agenda_name));
+  const agendaNames = (catalog.agenda_names || []).filter(
+    (n) => !enabledAgendas.some((r) => r.agenda_code === n),
+  );
   const [stage, setStage] = useState(0);
   let days = 0,
     dayError = "";
@@ -1291,11 +1336,13 @@ function RecordEditor({
                 list="professionals"
                 onChange={(e) => {
                   const name = e.target.value;
-                  const matches = catalog.professionals.filter(
-                    (p) =>
-                      p.name === name &&
-                      p.establishments.includes(String(form.Establecimiento)),
+                  const named = catalog.professionals.filter(
+                    (p) => p.name === name && p.profession,
                   );
+                  const inEst = named.filter((p) =>
+                    p.establishments.includes(String(form.Establecimiento)),
+                  );
+                  const matches = inEst.length ? inEst : named;
                   setForm({
                     ...form,
                     Profesional: name,
@@ -1312,6 +1359,7 @@ function RecordEditor({
                       .filter(
                         (p) =>
                           !form.Establecimiento ||
+                          !p.establishments.length ||
                           p.establishments.includes(
                             String(form.Establecimiento),
                           ),
@@ -1491,6 +1539,9 @@ function RecordEditor({
                   <option key={r.agenda_code} value={r.agenda_code}>
                     {r.agenda_name}
                   </option>
+                ))}
+                {agendaNames.map((n) => (
+                  <option key={"n:" + n} value={n} />
                 ))}
               </datalist>
               {form.Profesional && form.Establecimiento ? (

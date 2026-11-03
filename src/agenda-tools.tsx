@@ -8,6 +8,14 @@ import {
 } from "./agenda-import.ts";
 import type { AgendaCatalog, CatalogProfessional } from "./agenda-model.ts";
 import { useLanguage } from "./language.ts";
+import {
+  ResourcePreview,
+  ListsPreview,
+  canonicalAgenda,
+  chosenProfessional,
+  type ResourceChoice,
+} from "./resource-ui.tsx";
+import { resourceEntries } from "./resource-agenda.ts";
 export function AgendaImport({
   catalog,
   refresh,
@@ -22,7 +30,11 @@ export function AgendaImport({
     [files, setFiles] = useState<ParsedAgendaFile[]>([]),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
-    [done, setDone] = useState<string[]>([]);
+    [done, setDone] = useState<string[]>([]),
+    [choices, setChoices] = useState<Record<string, ResourceChoice>>({});
+  const extraNames = files.flatMap((f) => f.lists?.agendas || []);
+  const choiceOf = (f: ParsedAgendaFile) =>
+    choices[f.sha256] || { establishment: "", person: "" };
   const known = new Set([
     ...catalog.professionals
       .filter((p) => p.resource_code)
@@ -40,13 +52,21 @@ export function AgendaImport({
       ),
     ),
   ];
-  const invalid = files.some((f) => f.errors.length) || !!missing.length;
+  const invalid =
+    files.some((f) => f.errors.length) ||
+    !!missing.length ||
+    files.some(
+      (f) =>
+        f.resource &&
+        !done.includes(f.sha256) &&
+        (!choiceOf(f).establishment || choiceOf(f).person.trim().length < 3),
+    );
   return (
     <section className="v-panel v-pad a-import">
       <button className="v-btn primary" onClick={() => setOpen(!open)}>
         {t(
-          "Cargar agendas o nómina de profesionales",
-          "Upload agendas or professional directory",
+          "Cargar agendas por archivo (PDF por recurso, Excel, nómina)",
+          "Upload agendas from file (resource PDF, Excel, directory)",
         )}
       </button>
       {open && (
@@ -59,8 +79,8 @@ export function AgendaImport({
           </h2>
           <p>
             {t(
-              "Excel (.xlsx), PDF de texto y páginas guardadas (.php/.html). Los archivos PHP se leen como tablas: nunca se ejecutan. Puedes seleccionar varios archivos.",
-              "Excel (.xlsx), text PDF and saved pages (.php/.html). PHP is read as tables and never executed. Multiple files are supported.",
+              "PDF «Gestión Agendas por Recurso» de SISMAULE (negro = agenda activa, rojo = bloqueada), Excel «BD Profesionales y Agenda» para autocompletar, Excel/PDF de programación y páginas guardadas (.php/.html). Los PHP se leen como tablas: nunca se ejecutan. Puedes seleccionar varios archivos.",
+              "SISMAULE “Agenda by resource” PDF (black = active, red = blocked), “BD Profesionales y Agenda” Excel for autocomplete, programming Excel/PDF and saved pages (.php/.html). PHP is never executed. Multiple files are supported.",
             )}
           </p>
           <input
@@ -77,6 +97,7 @@ export function AgendaImport({
               setMessage("");
               setDone([]);
               setFiles([]);
+              setChoices({});
               setBusy(true);
               try {
                 if (selected.length > 6)
@@ -95,6 +116,18 @@ export function AgendaImport({
           {files.map((f, i) => (
             <article className="a-file-preview" key={f.sha256 + i}>
               <h3>{f.name}</h3>
+              {f.resource ? (
+                <ResourcePreview
+                  file={f}
+                  catalog={catalog}
+                  extraNames={extraNames}
+                  choice={choiceOf(f)}
+                  setChoice={(c) => setChoices((s) => ({ ...s, [f.sha256]: c }))}
+                  disabled={busy || done.includes(f.sha256)}
+                />
+              ) : f.lists ? (
+                <ListsPreview file={f} />
+              ) : (<>
               <p>
                 {f.professionals.length
                   ? `${f.professionals.length} fichas de profesionales`
@@ -197,6 +230,10 @@ export function AgendaImport({
                   </tbody>
                 </table>
               </div>
+              </>)}
+              {f.lists && !!f.errors.length && (
+                <div role="alert">{f.errors.map((s, i) => <p key={i}>{s}</p>)}</div>
+              )}
               {done.includes(f.sha256) ? (
                 <strong>
                   {t("Guardado o ya cargado", "Saved or already loaded")}
@@ -242,19 +279,46 @@ export function AgendaImport({
                   setMessage("");
                   const saved = [...done];
                   try {
-                    for (const f of [...files].sort(
-                      (a, b) => b.professionals.length - a.professionals.length,
-                    )) {
+                    const order = (f: ParsedAgendaFile) =>
+                      f.lists ? 0 : f.professionals.length ? 1 : f.resource ? 3 : 2;
+                    const notes: string[] = [];
+                    for (const f of [...files].sort((a, b) => order(a) - order(b))) {
                       if (saved.includes(f.sha256)) continue;
-                      await api.importAgendaFile(f);
+                      if (f.lists) {
+                        const r = await api.importReferenceLists(f);
+                        notes.push(
+                          r.already_loaded
+                            ? `${f.name}: ${t("ya estaba cargado", "already loaded")}`
+                            : `${f.name}: ${r.professionals} ${t("profesionales y", "professionals and")} ${r.agendas} ${t("agendas nuevas", "new agendas")}`,
+                        );
+                      } else if (f.resource) {
+                        const c = choiceOf(f);
+                        const fresh = await api.agendaCatalog();
+                        const r = await api.importResourceAgenda(
+                          f,
+                          c.establishment,
+                          chosenProfessional(fresh.professionals, c.person),
+                          resourceEntries(
+                            f.resource.rows,
+                            canonicalAgenda([...(fresh.agenda_names || []), ...extraNames]),
+                          ),
+                        );
+                        notes.push(
+                          `${f.name}: ${r.professional_name} · ${c.establishment} · ${r.inserted} ${t("franjas", "slots")}${r.replaced ? ` (${r.replaced} ${t("reemplazadas", "replaced")})` : ""}${r.created_professional ? " · " + t("ficha nueva", "new record") : ""}`,
+                        );
+                      } else await api.importAgendaFile(f);
                       saved.push(f.sha256);
                       setDone([...saved]);
                     }
+                    if (notes.length) setDone([...saved]);
                     setMessage(
-                      t(
-                        "Carga completada. El calendario y el directorio están actualizados.",
-                        "Upload completed. Calendar and directory are updated.",
-                      ),
+                      [
+                        t(
+                          "Carga completada. El calendario y el directorio están actualizados.",
+                          "Upload completed. Calendar and directory are updated.",
+                        ),
+                        ...notes,
+                      ].join(" · "),
                     );
                   } catch (e) {
                     setMessage((e as Error).message);

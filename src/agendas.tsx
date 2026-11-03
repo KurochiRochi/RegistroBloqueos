@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ManualAgenda } from "./v15.tsx";
+import { SisAgendaEntry } from "./manual-agenda.tsx";
 import type { MpoDate } from "./api.ts";
 import { AgendaImport, ProfessionalEditor } from "./agenda-tools.tsx";
 import { expandRules, establishments } from "./agenda-import.ts";
@@ -254,17 +254,26 @@ export function Agendas({
       ),
     [catalog.rules],
   );
+  const loadRow = writer && (
+    <div className="a-load-row">
+      <AgendaImport catalog={catalog} refresh={refresh} preview={preview} />
+      <SisAgendaEntry catalog={catalog} refresh={refresh} preview={preview} />
+    </div>
+  );
   if (!period)
     return (
+      <>
+      {loadRow}
       <section className="v-panel v-pad">
         <h2>{t("Agendas por establecimiento", "Agendas by establishment")}</h2>
         <p>
           {t(
-            loading ? "Cargando programación compartida…" : "No se ha cargado un período de referencia.",
+            loading ? "Cargando programación compartida…" : "Aún no hay agendas cargadas. Usa «Cargar agendas por archivo» (PDF por recurso) o «Ingreso manual de agenda».",
             loading ? "Loading shared programming…" : "No reference period has been loaded.",
           )}
         </p>
       </section>
+      </>
     );
   const day = clampDate(chosenDate || chileToday(), period);
   const visible = crossed.filter(
@@ -329,12 +338,7 @@ export function Agendas({
   };
   return (
     <>
-      {writer && (
-        <div className="a-load-row">
-          <AgendaImport catalog={catalog} refresh={refresh} preview={preview} />
-          <ManualAgenda catalog={catalog} refresh={refresh} preview={preview} />
-        </div>
-      )}
+      {loadRow}
       {!!referenceIssues.length && (
         <details className="a-pending">
           <summary>

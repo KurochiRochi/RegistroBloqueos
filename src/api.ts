@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type { PendingDocument, PatientDocument } from "./patients.ts";
-import type { AgendaCatalog } from "./agenda-model.ts";
+import { manualRules, type AgendaCatalog, type ManualAgenda } from "./agenda-model.ts";
 import {
   fields,
   validate,
@@ -72,7 +72,15 @@ export async function agendaCatalog(): Promise<AgendaCatalog> {
   if (cachedCatalog) return cachedCatalog;
   const result = await client().rpc('agenda_catalog_v13');
   if (result.error) throw new Error(explain(result.error));
-  cachedCatalog = result.data as AgendaCatalog;
+  const data = result.data as AgendaCatalog;
+  // Las agendas ingresadas manualmente se muestran como reglas semanales.
+  cachedCatalog = {
+    ...data,
+    rules: [
+      ...(data.rules || []),
+      ...manualRules(data.manual || [], data.professionals),
+    ],
+  };
   return cachedCatalog;
 }
 export async function importAgendaFile(
@@ -89,6 +97,88 @@ export async function importAgendaFile(
   invalidateAgendaCatalog();
   return r.data;
 }
+export async function importReferenceLists(
+  file: import("./agenda-files.ts").ParsedAgendaFile,
+) {
+  const r = await client().rpc("import_reference_lists", {
+    meta: { name: file.name, sha256: file.sha256 },
+    professionals: file.lists?.professionals || [],
+    agendas: file.lists?.agendas || [],
+  });
+  if (r.error) throw new Error(r.error.message);
+  invalidateAgendaCatalog();
+  return r.data as { professionals?: number; agendas?: number; already_loaded?: boolean };
+}
+export async function importResourceAgenda(
+  file: import("./agenda-files.ts").ParsedAgendaFile,
+  establishment: string,
+  professional: { id?: string; name: string },
+  entries: import("./resource-agenda.ts").ResourceEntry[],
+) {
+  const r = await client().rpc("import_resource_agenda", {
+    meta: {
+      name: file.name,
+      sha256: file.sha256,
+      establishment,
+      professional_id: professional.id || "",
+      professional_name: professional.name,
+    },
+    entries,
+  });
+  if (r.error) throw new Error(r.error.message);
+  invalidateAgendaCatalog();
+  return r.data as {
+    inserted: number;
+    replaced: number;
+    professional_name: string;
+    created_professional: boolean;
+    from: string;
+    until: string;
+  };
+}
+// ---- Agenda manual (estructura SISMAULE) ----
+type ManualHeader = Omit<ManualAgenda, "id" | "corr" | "details">;
+async function done<T>(p: PromiseLike<{ data: T; error: { message: string; code?: string } | null }>) {
+  const r = await p;
+  if (r.error) throw new Error(explain(r.error));
+  invalidateAgendaCatalog();
+  return r.data;
+}
+export const manualAgenda = {
+  saveHeader: (h: ManualHeader, id?: string) =>
+    done(
+      id
+        ? client().from("manual_agendas").update(h).eq("id", id).select("id").single()
+        : client().from("manual_agendas").insert(h).select("id").single(),
+    ) as Promise<{ id: string }>,
+  remove: (id: string) => done(client().from("manual_agendas").delete().eq("id", id)),
+  generate: (id: string) =>
+    done(client().from("manual_agendas").update({ generated: true }).eq("id", id)),
+  close: (id: string, day: string) =>
+    done(client().from("manual_agendas").update({ closed_on: day }).eq("id", id)),
+  copy: (id: string, from: string, until: string) =>
+    done(client().rpc("copy_manual_agenda", { source: id, new_start: from, new_end: until })),
+  saveDetail: (
+    d: { manual_agenda_id: string; weekday: number; starts_at: string; interval_minutes: number; capacity: number; box: string },
+    id?: string,
+  ) =>
+    done(
+      id
+        ? client().from("manual_agenda_details").update(d).eq("id", id)
+        : client().from("manual_agenda_details").insert(d),
+    ),
+  removeDetail: (id: string) => done(client().from("manual_agenda_details").delete().eq("id", id)),
+  saveQuota: (
+    q: { detail_id: string; establishment: string; attention: string; capacity: number },
+    id?: string,
+  ) =>
+    done(
+      id
+        ? client().from("manual_agenda_quotas").update(q).eq("id", id)
+        : client().from("manual_agenda_quotas").insert(q),
+    ),
+  removeQuota: (id: string) => done(client().from("manual_agenda_quotas").delete().eq("id", id)),
+};
 export async function saveCatalogProfessional(payload: unknown) {
   const r = await client().rpc("save_catalog_professional", { payload });
   if (r.error)

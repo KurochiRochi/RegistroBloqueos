@@ -14,6 +14,14 @@ export const demoCatalog: AgendaCatalog = {
   ],
   professionals: [
     {
+      id: "p3",
+      name: "FRUGONE ZAROR CRISTOBAL JESUS",
+      profession: "",
+      source_assignment: "Lista BD Profesionales",
+      classification: "pending",
+      establishments: [],
+    },
+    {
       id: "p1",
       name: "Profesional de demostración",
       profession: "Medicina",
@@ -28,6 +36,30 @@ export const demoCatalog: AgendaCatalog = {
       source_assignment: "Ninguno",
       classification: "support",
       establishments: [],
+    },
+  ],
+  agenda_names: ["CONSULTA MORBILIDAD", "CONTROL CRONICO 70 AÑOS Y MAS", "CONSULTAS MORBILIDAD GENERAL (PROGRAMA DEL ADULTO MAYOR)"],
+  manual: [
+    {
+      id: "m1",
+      corr: 1,
+      professional_id: "p1",
+      establishment: "Los Olivos",
+      agenda_code: "151",
+      agenda_name: "CONTROL CRONICO 70 AÑOS Y MAS",
+      starts_on: "2026-11-02",
+      ends_on: "2026-11-30",
+      closed_on: null,
+      generated: false,
+      staggered: false,
+      requires_record: true,
+      funding: "PRODUCCIÓN - PRESTACIÓN INSTITUCIONAL",
+      agenda_type: "Consulta",
+      multi_hour: false,
+      details: [
+        { id: "d1", manual_agenda_id: "m1", weekday: 2, starts_at: "09:30:00", interval_minutes: 45, capacity: 1, box: "", quotas: [{ id: "q1", detail_id: "d1", establishment: "Los Olivos", attention: "CONTROL", capacity: 1 }] },
+        { id: "d2", manual_agenda_id: "m1", weekday: 3, starts_at: "15:15:00", interval_minutes: 45, capacity: 2, box: "4", quotas: [] },
+      ],
     },
   ],
   sessions: [

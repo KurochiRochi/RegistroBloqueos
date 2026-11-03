@@ -38,7 +38,77 @@ export type AgendaSession = {
   attention?: string;
   interval_minutes?: number;
   source_row?: string;
+  booked?: number | null;
 };
+export type ManualQuota = {
+  id: string;
+  detail_id: string;
+  establishment: string;
+  attention: "CONTROL" | "NUEVO";
+  capacity: number;
+};
+export type ManualDetail = {
+  id: string;
+  manual_agenda_id: string;
+  weekday: number;
+  starts_at: string;
+  interval_minutes: number;
+  capacity: number;
+  box: string;
+  quotas: ManualQuota[];
+};
+export type ManualAgenda = {
+  id: string;
+  corr: number;
+  professional_id: string;
+  establishment: string;
+  agenda_code: string;
+  agenda_name: string;
+  starts_on: string;
+  ends_on: string;
+  closed_on: string | null;
+  generated: boolean;
+  staggered: boolean;
+  requires_record: boolean;
+  funding: string;
+  agenda_type: "Consulta" | "Procedimiento";
+  multi_hour: boolean;
+  details: ManualDetail[];
+};
+/** Convierte el detalle de las agendas manuales en reglas semanales para el calendario. */
+export function manualRules(
+  manual: ManualAgenda[],
+  professionals: CatalogProfessional[],
+): import("./agenda-import.ts").AgendaRule[] {
+  const byId = new Map(professionals.map((p) => [p.id, p]));
+  return manual.flatMap((m) => {
+    const until = m.closed_on && m.closed_on < m.ends_on ? m.closed_on : m.ends_on;
+    const p = byId.get(m.professional_id);
+    return m.details.map((d) => ({
+      id: "manual:" + d.id,
+      professional_id: m.professional_id,
+      establishment: m.establishment,
+      resource_code: p?.resource_code || "",
+      resource_name: p?.name || "",
+      agenda_code: m.agenda_code || "M-" + m.corr,
+      agenda_name: m.agenda_name,
+      starts_on: m.starts_on,
+      ends_on: until,
+      weekday: d.weekday,
+      starts_at: d.starts_at.slice(0, 5),
+      interval_minutes: d.interval_minutes,
+      capacity: d.capacity,
+      generated: m.generated,
+      staggered: m.staggered,
+      source_blocked: false,
+      attention: d.quotas
+        .map((q) => `${q.attention} ${q.capacity}${q.establishment !== m.establishment ? " · " + q.establishment : ""}`)
+        .join(", "),
+      source_row: `Corr. ${m.corr}${d.box ? " · Box " + d.box : ""}`,
+      source_name: "Ingreso manual",
+    }));
+  });
+}
 export type AgendaCatalog = {
   periods: ReferencePeriod[];
   professionals: CatalogProfessional[];
@@ -52,6 +122,8 @@ export type AgendaCatalog = {
     inserted_count: number;
     created_at: string;
   }[];
+  agenda_names?: string[];
+  manual?: ManualAgenda[];
 };
 export const emptyCatalog: AgendaCatalog = {
   periods: [],

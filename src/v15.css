@@ -56,3 +56,68 @@
 .a-manual-grid > * { min-width: 0; }
 .a-manual-grid .v-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 .a-manual-grid .v-field input, .a-manual-grid .v-field select { width: 100%; box-sizing: border-box; }
+
+/* 1.6 · PDF por recurso y listas */
+.a-load-row:has(.sis), .a-load-row:has(.r-preview) { grid-template-columns: 1fr; }
+.r-preview { margin-top: 6px; }
+.r-kind { font-weight: 600; color: #0b3a75; }
+.r-red { color: #c62828; }
+.r-choice { margin: 10px 0; }
+.r-agendas { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 10px; }
+.r-tag { font-size: .78rem; border-radius: 999px; padding: 3px 10px; background: #eef4ff; color: #12408f; border: 1px solid #c9d9f5; }
+.r-tag.blocked { background: #fdecec; color: #b3261e; border-color: #f2b8b5; }
+.r-table { font-size: .82rem; }
+.r-table tr.r-blocked td { color: #c62828; }
+.r-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: .84rem; }
+@media (max-width: 700px) { .r-lists { grid-template-columns: 1fr; } }
+
+/* 1.6 · Ingreso manual con estructura SISMAULE */
+.sis { --sis-head: #0b2f8a; --sis-bar: #a9cbec; --sis-bg: #dce6f0; --sis-btn: #5b8fcb; }
+.sis-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.sis-top h2 { margin: 0; }
+.sis-card { background: var(--sis-bg); border: 1px solid #b8cde3; border-radius: 8px; padding: 0 0 10px; margin: 12px 0; overflow: hidden; }
+.sis-title { margin: 0; padding: 7px 12px; background: linear-gradient(#c3dbf2, var(--sis-bar)); color: var(--sis-head); text-align: center; font-size: .95rem; font-weight: 800; letter-spacing: .02em; }
+.sis-hint { margin: 10px 16px; color: #2d5a8a; font-size: .85rem; }
+.sis-crumb { margin: 10px 0 0; color: #33475b; font-size: .9rem; }
+.sis-form { display: grid; grid-template-columns: minmax(150px, 230px) 1fr; gap: 8px 14px; align-items: center; padding: 12px 16px; }
+.sis-form.narrow { grid-template-columns: 150px 1fr; }
+.sis-form > label { color: #1f4f86; font-size: .85rem; }
+.sis-form input, .sis-form select { border: 1px solid #2f5f99; border-radius: 3px; padding: 4px 6px; background: #fff; font: inherit; font-size: .88rem; max-width: 100%; }
+.sis-form .full { grid-column: 1 / -1; }
+.sis-pair { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.sis-pair > input:not(.sis-code), .sis-pair > select { flex: 1; min-width: 0; }
+.sis-code { width: 64px; flex: none; }
+.sis-short { width: 90px; }
+.sis-lupa { font-size: 1rem; }
+.sis-time { display: flex; gap: 6px; align-items: center; color: #1f4f86; font-size: .85rem; }
+.sis-time input { width: 48px; }
+.sis-radios { display: flex; gap: 18px; font-size: .88rem; color: #1f4f86; }
+.sis-check { justify-self: start; width: 18px; height: 18px; }
+.sis-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding: 10px 12px 0; }
+.sis-btn { background: var(--sis-btn); color: #fff; border: 1px solid #fff; box-shadow: 0 0 0 1px var(--sis-btn); border-radius: 2px; padding: 4px 14px; font-size: .78rem; font-weight: 800; letter-spacing: .03em; cursor: pointer; }
+.sis-btn:disabled { opacity: .45; cursor: not-allowed; }
+.sis-btn.light { background: #f1f1f1; color: #222; box-shadow: 0 0 0 1px #9a9a9a; border-color: #fff; }
+.sis-btn.small { padding: 3px 10px; font-size: .7rem; }
+.sis-table { width: 100%; border-collapse: collapse; background: #fff; font-size: .8rem; }
+.sis-table th { background: #d7e3ef; color: #12406f; padding: 5px 6px; text-align: left; border-right: 1px solid #fff; white-space: nowrap; }
+.sis-table td { padding: 5px 6px; border-bottom: 1px solid #eef2f6; color: #33475b; }
+.sis-table tbody tr { cursor: pointer; }
+.sis-table tbody tr:nth-child(even) td { background: #f2f4f7; }
+.sis-table tbody tr.selected td { background: #a9cbec; color: #0b2f5a; font-weight: 600; }
+.sis-table .sis-empty { text-align: center; color: #6b7c8f; cursor: default; padding: 16px; background: #fff !important; }
+.sis-scroll { max-height: 260px; overflow: auto; margin: 0 8px; }
+.sis-card .sis-table { margin: 0; }
+.sis-two > .sis-card > .sis-table { width: calc(100% - 16px); margin: 0 8px; }
+.sis-icon { border: 0; background: none; cursor: pointer; color: #2a62a8; font-size: 1rem; padding: 0 4px; }
+.sis-icon.del { color: #d32f2f; }
+.sis-two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 900px) { .sis-two { grid-template-columns: 1fr; } .sis-form { grid-template-columns: 1fr; } }
+.sis-inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; background: #eef4ff; border: 1px solid #c9d9f5; border-radius: 8px; padding: 8px 12px; margin-top: 10px; font-size: .88rem; }
+.sis-inline.warn { background: #fdecec; border-color: #f2b8b5; }
+.sis-overlay { position: fixed; inset: 0; background: rgba(20, 40, 70, .35); display: grid; place-items: center; z-index: 60; padding: 16px; }
+.sis-dialog { width: min(760px, 100%); max-height: calc(100vh - 32px); overflow: auto; background: linear-gradient(#e3f0fd, #c8def5); border: 1px solid #6e8fb5; border-radius: 6px; box-shadow: 0 12px 40px rgba(0, 0, 0, .3); }
+.sis-dialog .sis-title { background: none; padding-top: 18px; }
+.sis-dialog .sis-form { background: #dce3ea; margin: 6px 16px 16px; border: 1px solid #b8c7d6; }
+.r-rows summary { cursor: pointer; color: #12408f; font-weight: 600; margin: 4px 0 8px; }
+.r-table td:first-child { white-space: nowrap; }
+.sis-pair > input.sis-short { flex: none; }
