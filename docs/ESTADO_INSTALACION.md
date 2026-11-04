@@ -52,4 +52,3 @@ Cloudflare confirmó Success: sitio construido y publicado en el dominio definit
 - Cabeceras de seguridad reforzadas (HSTS, COOP/CORP, blob: para vistas previas, upgrade-insecure-requests). Requiere publicar el nuevo ZIP para aplicarse.
 - fflate 0.8.3 y vite 8.1.6: pnpm audit sin vulnerabilidades. Función enviar-observacion endurecida (aún sin desplegar: depende de Resend).
 - Pendiente manual: activar Leaked password protection en Supabase y 2FA en todas las cuentas.
-- Nota: la migración 013 (agenda_recurso_y_manual) figura aplicada en Supabase pero su archivo no está en este repositorio.
