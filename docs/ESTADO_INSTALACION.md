@@ -44,3 +44,12 @@ Cloudflare confirmó Success: sitio construido y publicado en el dominio definit
 - Migración 009 aplicada: Los Carros también admitido al registrar bloqueos. Validado en PostgreSQL local sin introducir registros de prueba en producción.
 
 - Migración 010 aplicada: catálogo en una respuesta consistente mediante RPC SECURITY INVOKER con RLS, evitando decenas de consultas al abrir la app. Solo perfiles activos; acceso anónimo rechazado en pruebas.
+
+## Actualización 1.6 — 4 de noviembre de 2026 (Seguridad)
+
+- Migración 014 aplicada en Supabase: se quitaron permisos sobrantes (TRUNCATE, REFERENCES, TRIGGER; todo a anon). Verificado: 0 permisos sobrantes.
+- Auditoría de RLS, funciones y buckets sin hallazgos críticos; detalle en docs/SEGURIDAD.md.
+- Cabeceras de seguridad reforzadas (HSTS, COOP/CORP, blob: para vistas previas, upgrade-insecure-requests). Requiere publicar el nuevo ZIP para aplicarse.
+- fflate 0.8.3 y vite 8.1.6: pnpm audit sin vulnerabilidades. Función enviar-observacion endurecida (aún sin desplegar: depende de Resend).
+- Pendiente manual: activar Leaked password protection en Supabase y 2FA en todas las cuentas.
+- Nota: la migración 013 (agenda_recurso_y_manual) figura aplicada en Supabase pero su archivo no está en este repositorio.
