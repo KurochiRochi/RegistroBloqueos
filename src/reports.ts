@@ -185,7 +185,7 @@ export function establishmentPdf(
     doc.setPage(i);
     doc.setFontSize(8);
     doc.text(
-      `Página ${i}/${count} · Registro de bloqueos 1.5 · Días: lunes a sábado sin domingos ni feriados. Sin identificadores de pacientes.`,
+      `Página ${i}/${count} · Registro de bloqueos 1.6 · Días: lunes a sábado sin domingos ni feriados. Sin identificadores de pacientes.`,
       14,
       202,
     );

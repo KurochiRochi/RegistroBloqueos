@@ -1,6 +1,6 @@
 {
   "name": "bloquea-independiente",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -17,7 +17,7 @@
     "@fontsource-variable/dm-sans": "^5.3.0",
     "@fontsource-variable/manrope": "^5.3.0",
     "@supabase/supabase-js": "^2.0.0",
-    "fflate": "0.8.2",
+    "fflate": "0.8.3",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.9",
     "parse5": "^8.0.1",
@@ -32,6 +32,6 @@
     "@types/react-dom": "19.2.3",
     "prettier": "3.6.2",
     "typescript": "5.9.3",
-    "vite": "8.0.13"
+    "vite": "8.1.6"
   }
 }
