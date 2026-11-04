@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { SisAgendaEntry } from "./manual-agenda.tsx";
+import { QuickAgenda } from "./quick-agenda.tsx";
+import * as api from "./api.ts";
 import type { MpoDate } from "./api.ts";
+import { allMissing, prefillFromMissing } from "./linked.tsx";
+import { readSystemFile } from "./system-blocks.ts";
+import type { Data } from "./model.ts";
 import { AgendaImport, ProfessionalEditor } from "./agenda-tools.tsx";
 import { expandRules, establishments } from "./agenda-import.ts";
 import { chileToday, type RecordRow } from "./model.ts";
@@ -17,6 +22,7 @@ import {
   type CrossedAgenda,
   type CatalogProfessional,
 } from "./agenda-model.ts";
+const NO_SYS: any[] = [];
 const stateNames = {
   scheduled: ["Programada", "Scheduled"],
   blocked: ["Bloqueada", "Blocked"],
@@ -160,6 +166,9 @@ export function Agendas({
   loading = false,
   mpo = [],
   focus = null,
+  sys = NO_SYS,
+  onRegister = () => {},
+  openProfessional = () => {},
 }: {
   catalog: AgendaCatalog;
   blocks: RecordRow[];
@@ -170,9 +179,14 @@ export function Agendas({
   loading?: boolean;
   mpo?: MpoDate[];
   focus?: { date: string; professional: string; establishment: string; key: number } | null;
+  sys?: any[];
+  onRegister?: (prefill: Partial<Data>) => void;
+  openProfessional?: (name: string, establishment?: string) => void;
 }) {
   const { t, lang } = useLanguage();
   const [shown, setShown] = useState(50);
+  const [attachMsg, setAttachMsg] = useState(""),
+    [attachBusy, setAttachBusy] = useState(false);
   const [periodId, setPeriodId] = useState(""),
     [chosenDate, setDate] = useState(""),
     [mode, setMode] = useState<"day" | "week" | "month">("week");
@@ -254,9 +268,62 @@ export function Agendas({
       ),
     [catalog.rules],
   );
+  const missingAll = useMemo(
+    () => allMissing(catalog, blocks, sys),
+    [catalog, blocks, sys],
+  );
+  const missing = missingAll.filter(
+    (m) =>
+      (!est || m.establishment === est) &&
+      (!person || m.professional?.id === person) &&
+      (!agenda || m.agenda_name === agenda),
+  );
+  const missingKeys = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of missingAll)
+      for (const d of dates(m.from, m.until))
+        set.add([m.professional?.id, m.establishment, key(m.agenda_name), d].join("|"));
+    return set;
+  }, [missingAll]);
+  const isMissing = (s: { professional_id: string; establishment: string; agenda_name: string; service_day: string; source_blocked?: boolean }) =>
+    !!s.source_blocked &&
+    missingKeys.has([s.professional_id, s.establishment, key(s.agenda_name), s.service_day].join("|"));
+  async function attachFile(list: FileList | null) {
+    if (!list?.length) return;
+    setAttachBusy(true);
+    setAttachMsg("");
+    try {
+      let nuevos = 0,
+        completados = 0,
+        omitidos = 0;
+      for (const f of Array.from(list)) {
+        const parsed = await readSystemFile(f);
+        if (!parsed.blocks.length) {
+          setAttachMsg(`${f.name}: ${parsed.errors.join(" ") || "no se encontraron bloqueos."}`);
+          continue;
+        }
+        const r = await api.importSystemBlocks(parsed);
+        nuevos += r.nuevos;
+        completados += r.completados;
+        omitidos += r.repetidos + r.ya_en_app;
+      }
+      setAttachMsg(
+        t(
+          `Archivo cargado: ${nuevos} nuevos, ${completados} completados, ${omitidos} ya registrados.`,
+          `File loaded: ${nuevos} new, ${completados} completed, ${omitidos} already registered.`,
+        ),
+      );
+      await refresh();
+    } catch (e) {
+      setAttachMsg((e as Error).message);
+    } finally {
+      setAttachBusy(false);
+    }
+  }
   const loadRow = writer && (
     <div className="a-load-row">
       <AgendaImport catalog={catalog} refresh={refresh} preview={preview} />
+      <QuickAgenda catalog={catalog} refresh={refresh} preview={preview} />
       <SisAgendaEntry catalog={catalog} refresh={refresh} preview={preview} />
     </div>
   );
@@ -361,6 +428,49 @@ export function Agendas({
             </p>
           ))}
         </details>
+      )}
+      {!!missing.length && (
+        <section className="miss-panel" aria-label={t("Bloqueos sin registrar", "Unregistered blocks")}>
+          <h3>
+            ⚠ {missing.length}{" "}
+            {t(
+              "bloqueo(s) hechos en la agenda (rojo) que no están registrados en Bloqueos",
+              "agenda block(s) (red) not registered in Blocks",
+            )}
+          </h3>
+          {missing.slice(0, 30).map((m) => (
+            <div className="miss-row" key={m.id}>
+              <span>
+                <strong>{m.professional?.name || "—"}</strong> · {m.agenda_name} ·{" "}
+                {m.establishment} · {m.from.split("-").reverse().join("/")}
+                {m.until !== m.from && ` — ${m.until.split("-").reverse().join("/")}`}
+              </span>
+              {writer && (
+                <span>
+                  <button className="v-btn primary" onClick={() => onRegister(prefillFromMissing(m))}>
+                    {t("Registrar bloqueo", "Register block")}
+                  </button>{" "}
+                  <label className={"v-btn" + (attachBusy ? " disabled" : "")}>
+                    ⇪ {t("Adjuntar archivo", "Attach file")}
+                    <input
+                      type="file"
+                      hidden
+                      multiple
+                      disabled={attachBusy}
+                      accept=".xlsx,.pdf,.html,.htm,.php"
+                      onChange={(e) => {
+                        void attachFile(e.target.files);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </span>
+              )}
+            </div>
+          ))}
+          {missing.length > 30 && <p>+ {missing.length - 30}…</p>}
+          {attachMsg && <p role="status">{attachMsg}</p>}
+        </section>
       )}
       <div className="a-filters">
         <Filters
@@ -551,6 +661,11 @@ export function Agendas({
                             </span>
                             <span>{e.session.agenda_name}</span>
                             <small>{e.session.establishment}</small>
+                            {isMissing(e.session) && (
+                              <span className="v-badge-nomatch">
+                                {t("Bloqueo sin registrar", "Block not registered")}
+                              </span>
+                            )}
                           </button>
                         ))}
                       {events.length >
@@ -629,7 +744,16 @@ export function Agendas({
           <div className="a-detail-grid">
             <p>
               <strong>{t("Profesional", "Professional")}</strong>
-              {selected.professional?.name}
+              {selected.professional ? (
+                <button
+                  className="who-link"
+                  onClick={() =>
+                    openProfessional(selected.professional!.name, selected.session.establishment)
+                  }
+                >
+                  {selected.professional.name}
+                </button>
+              ) : null}
             </p>
             <p>
               <strong>{t("Establecimiento", "Establishment")}</strong>
@@ -678,6 +802,19 @@ export function Agendas({
               {selected.session.interval_minutes} min
             </p>
           )}
+          {isMissing(selected.session) && (
+            <div className="miss-panel">
+              <h3>{t("Bloqueado en la agenda, sin registro en Bloqueos", "Blocked in the agenda, not registered in Blocks")}</h3>
+              {writer &&
+                missingAll
+                  .filter((m) => m.sessionIds.length && m.professional?.id === selected.session.professional_id && m.establishment === selected.session.establishment && key(m.agenda_name) === key(selected.session.agenda_name) && m.from <= selected.session.service_day && m.until >= selected.session.service_day)
+                  .map((m) => (
+                    <button key={m.id} className="v-btn primary" onClick={() => onRegister(prefillFromMissing(m))}>
+                      {t("Registrar bloqueo", "Register block")}
+                    </button>
+                  ))}
+            </div>
+          )}
           <h3>{t("Bloqueos asociados", "Related blocks")}</h3>
           {selected.blocks.length ? (
             selected.blocks.map((b) => (
@@ -708,14 +845,41 @@ export function Professionals({
   writer = false,
   refresh = async () => {},
   preview = false,
+  blocks = [],
+  sys = NO_SYS,
+  openBlock = () => {},
+  openProfessional = () => {},
 }: {
   catalog: AgendaCatalog;
   openCalendar: () => void;
   writer?: boolean;
   refresh?: () => Promise<void>;
   preview?: boolean;
+  blocks?: RecordRow[];
+  sys?: any[];
+  openBlock?: (r: RecordRow) => void;
+  openProfessional?: (name: string, establishment?: string) => void;
 }) {
   const { t } = useLanguage();
+  const stats = useMemo(() => {
+    const blockCount = new Map<string, number>();
+    for (const b of blocks)
+      if (!b.archived) blockCount.set(key(b.Profesional), (blockCount.get(key(b.Profesional)) || 0) + 1);
+    for (const b of sys)
+      blockCount.set(key(b.profesional), (blockCount.get(key(b.profesional)) || 0) + 1);
+    const agendaNames = new Map<string, Set<string>>();
+    const cupos = new Map<string, number>();
+    const add = (id: string | undefined, name: string, cap: number) => {
+      if (!id) return;
+      const set = agendaNames.get(id) || new Set<string>();
+      set.add(name);
+      agendaNames.set(id, set);
+      cupos.set(id, (cupos.get(id) || 0) + cap);
+    };
+    for (const s of catalog.sessions) add(s.professional_id, s.agenda_name, s.capacity || 0);
+    for (const r of catalog.rules || []) add(r.professional_id, r.agenda_name, 0);
+    return { blockCount, agendaNames, cupos };
+  }, [blocks, sys, catalog]);
   const [editing, setEditing] = useState<
     CatalogProfessional | null | undefined
   >();
@@ -838,6 +1002,8 @@ export function Professionals({
                   t("Profesión", "Profession"),
                   t("Establecimiento(s)", "Establishment(s)"),
                   t("Vinculación", "Assignment"),
+                  t("Agendas", "Agendas"),
+                  t("Bloqueos", "Blocks"),
                   t("Programación", "Programming"),
                   t("Acciones", "Actions"),
                 ].map((h) => (
@@ -858,7 +1024,12 @@ export function Professionals({
                           .join("")}
                       </span>
                       <div>
-                        <strong>{p.name}</strong>
+                        <button
+                          className="who-link"
+                          onClick={() => openProfessional(p.name, p.establishments[0])}
+                        >
+                          {p.name}
+                        </button>
                         <small className="a-resource-code">
                           {p.resource_code
                             ? `${p.resource_establishment} · SISMAULE ${p.resource_code}`
@@ -887,6 +1058,13 @@ export function Professionals({
                           : t("Por confirmar", "Pending")}
                     </span>
                   </td>
+                  <td>
+                    {stats.agendaNames.get(p.id)?.size || 0}
+                    {!!stats.cupos.get(p.id) && (
+                      <small> · {stats.cupos.get(p.id)} {t("cupos", "slots")}</small>
+                    )}
+                  </td>
+                  <td>{stats.blockCount.get(key(p.name)) || 0}</td>
                   <td>
                     {catalog.sessions.some((s) => s.professional_id === p.id) ||
                     (catalog.rules || []).some(

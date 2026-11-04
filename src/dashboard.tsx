@@ -2,6 +2,8 @@ import { Agendas, Professionals } from "./agendas.tsx";
 import { Home, ReportsHub, Icon } from "./institutional.tsx";
 import { Feedback, UsageGuide, MpoPanel } from "./v15.tsx";
 import { emptyCatalog, type AgendaCatalog } from "./agenda-model.ts";
+import { Combo } from "./combo.tsx";
+import { ProfessionalPanel } from "./linked.tsx";
 
 import React, {
   useState,
@@ -184,7 +186,8 @@ export function Dashboard({
     );
   const [mpo, setMpo] = useState<api.MpoDate[]>([]),
     [focus, setFocus] = useState<{ date: string; professional: string; establishment: string; key: number } | null>(null),
-    [prefill, setPrefill] = useState<Partial<Data> | null>(null);
+    [prefill, setPrefill] = useState<Partial<Data> | null>(null),
+    [who, setWho] = useState<{ name: string; establishment?: string } | null>(null);
   const [edit, setEdit] = useState<RecordRow | null | undefined>(),
     [patientsBlock, setPatientsBlock] = useState<string | undefined>(),
     [search, setSearch] = useState(""),
@@ -364,7 +367,7 @@ export function Dashboard({
         .includes(search.toLowerCase()),
   );
   const manualCodes = new Set(
-    rows.map((r) =>
+    active.map((r) =>
       String(r.Codigo_Bloqueo ?? "")
         .trim()
         .toLowerCase(),
@@ -406,7 +409,7 @@ export function Dashboard({
             Salud Comunal<small>Municipalidad de Parral</small>
           </span>
         </a>
-        <small className="v-version">Registro de bloqueos · 1.6</small>
+        <small className="v-version">Registro de bloqueos · 1.7</small>
         <nav aria-label={t("Navegación principal", "Main navigation")}>
           {nav
             .filter(([name]) => name !== "Pacientes citados" || writer)
@@ -594,6 +597,12 @@ export function Dashboard({
               preview={preview}
               mpo={mpo}
               focus={focus}
+              sys={sys}
+              onRegister={(p) => {
+                setPrefill(p);
+                setEdit(null);
+              }}
+              openProfessional={(name, establishment) => setWho({ name, establishment })}
             />
           )}
           {view === "Profesionales" && (
@@ -603,6 +612,10 @@ export function Dashboard({
               refresh={refresh}
               preview={preview}
               openCalendar={() => setView("Agendas por establecimiento")}
+              blocks={rows}
+              sys={sys}
+              openBlock={setEdit}
+              openProfessional={(name, establishment) => setWho({ name, establishment })}
             />
           )}
           {view === "Reportes" && (
@@ -701,7 +714,17 @@ export function Dashboard({
                             )}
                           </td>
                           <td>
-                            {r.Profesional}
+                            <button
+                              className="who-link"
+                              onClick={() =>
+                                setWho({
+                                  name: String(r.Profesional),
+                                  establishment: String(r.Establecimiento),
+                                })
+                              }
+                            >
+                              {r.Profesional}
+                            </button>
                             <small>
                               {r.Profesion || t("Sin informar", "Unspecified")}
                             </small>
@@ -884,7 +907,7 @@ export function Dashboard({
         </main>
         {!preview && profile && <Feedback page={view} />}
         <footer className="v-footer">
-          Registro de bloqueos · 1.6{" "}
+          Registro de bloqueos · 1.7{" "}
           <span>
             {t(
               "Lunes a sábado; sin domingos ni feriados.",
@@ -1011,6 +1034,30 @@ export function Dashboard({
           close={() => setModal(null)}
         >
           <Access preview={preview} changed={refresh} />
+        </Modal>
+      )}
+      {who && (
+        <Modal title={t("Ficha del profesional", "Professional record")} close={() => setWho(null)}>
+          <ProfessionalPanel
+            name={who.name}
+            establishment={who.establishment}
+            catalog={catalog}
+            blocks={rows}
+            sys={sys}
+            openBlock={(b) => {
+              setWho(null);
+              setEdit(b);
+            }}
+            openCalendar={() => {
+              setWho(null);
+              setView("Agendas por establecimiento");
+            }}
+            register={(p) => {
+              setWho(null);
+              setPrefill(p);
+              setEdit(null);
+            }}
+          />
         </Modal>
       )}
       {edit !== undefined && (
@@ -1166,7 +1213,66 @@ function RecordEditor({
   const agendaNames = (catalog.agenda_names || []).filter(
     (n) => !enabledAgendas.some((r) => r.agenda_code === n),
   );
+  const agendaOptions = [
+    ...enabledAgendas.map((r) => ({
+      value: r.agenda_code,
+      hint: r.agenda_name !== r.agenda_code ? r.agenda_name : undefined,
+    })),
+    ...agendaNames.map((n) => ({ value: n })),
+  ];
+  const professionalOptions = [
+    ...new Map(
+      [
+        ...catalog.professionals
+          .filter(
+            (p) =>
+              !form.Establecimiento ||
+              !p.establishments.length ||
+              p.establishments.includes(String(form.Establecimiento)),
+          )
+          .map((p) => [
+            p.name,
+            {
+              value: p.name,
+              hint: [p.profession, p.establishments.join(", ")]
+                .filter(Boolean)
+                .join(" · "),
+            },
+          ] as const),
+        ...rows.map((r) => [String(r.Profesional), { value: String(r.Profesional) }] as const),
+      ].reverse(),
+    ).values(),
+  ].reverse();
+  const setProfessional = (name: string) => {
+    const named = catalog.professionals.filter(
+      (p) => p.name === name && p.profession,
+    );
+    const inEst = named.filter((p) =>
+      p.establishments.includes(String(form.Establecimiento)),
+    );
+    const matches = inEst.length ? inEst : named;
+    setForm((f) => ({
+      ...f,
+      Profesional: name,
+      ...(matches.length === 1 ? { Profesion: matches[0].profession } : {}),
+    }));
+  };
   const [stage, setStage] = useState(0);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  async function removeBlock() {
+    if (!row) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api.deleteRecord(row);
+      await saved();
+    } catch (e) {
+      setError(errorText(e));
+      setConfirmDelete(false);
+    } finally {
+      setBusy(false);
+    }
+  }
   let days = 0,
     dayError = "";
   try {
@@ -1320,7 +1426,10 @@ function RecordEditor({
               </select>
             </Field>
             <Field
-              label={t("Sector / centro rural", "Sector / rural facility")}
+              label={t(
+                "Sector / centro rural (opcional)",
+                "Sector / rural facility (optional)",
+              )}
             >
               <input
                 value={String(form.Sector)}
@@ -1329,64 +1438,28 @@ function RecordEditor({
               />
             </Field>
             <Field label={t("Profesional", "Professional")}>
-              <input
+              <Combo
                 required
-                value={String(form.Profesional)}
                 maxLength={250}
-                list="professionals"
-                onChange={(e) => {
-                  const name = e.target.value;
-                  const named = catalog.professionals.filter(
-                    (p) => p.name === name && p.profession,
-                  );
-                  const inEst = named.filter((p) =>
-                    p.establishments.includes(String(form.Establecimiento)),
-                  );
-                  const matches = inEst.length ? inEst : named;
-                  setForm({
-                    ...form,
-                    Profesional: name,
-                    ...(matches.length === 1
-                      ? { Profesion: matches[0].profession }
-                      : {}),
-                  });
-                }}
+                value={String(form.Profesional)}
+                placeholder={t(
+                  "Escribe parte del nombre o apellido…",
+                  "Type part of the name or surname…",
+                )}
+                options={professionalOptions}
+                onChange={(name) => setProfessional(name)}
               />
-              <datalist id="professionals">
-                {[
-                  ...new Set([
-                    ...catalog.professionals
-                      .filter(
-                        (p) =>
-                          !form.Establecimiento ||
-                          !p.establishments.length ||
-                          p.establishments.includes(
-                            String(form.Establecimiento),
-                          ),
-                      )
-                      .map((p) => p.name),
-                    ...rows.map((r) => String(r.Profesional)),
-                  ]),
-                ].map((v) => (
-                  <option key={v}>{v}</option>
-                ))}
-              </datalist>
             </Field>
             <Field
               label={t("Profesión del profesional", "Professional occupation")}
             >
-              <input
+              <Combo
                 required
-                value={form.Profesion || ""}
                 maxLength={150}
-                list="professions"
-                onChange={(e) => update("Profesion", e.target.value)}
+                value={form.Profesion || ""}
+                options={professions.map((v) => ({ value: v }))}
+                onChange={(v) => update("Profesion", v)}
               />
-              <datalist id="professions">
-                {professions.map((v) => (
-                  <option key={v}>{v}</option>
-                ))}
-              </datalist>
             </Field>
             <Field label={t("Tipo de bloqueo", "Block type")}>
               <select
@@ -1503,14 +1576,15 @@ function RecordEditor({
                     <span>
                       {t("Agenda", "Agenda")} {i + 1}
                     </span>
-                    <input
+                    <Combo
                       required
                       maxLength={250}
-                      list="available-agendas"
                       value={a}
-                      onChange={(e) => {
+                      placeholder={t("Escribe para buscar la agenda…", "Type to search the agenda…")}
+                      options={agendaOptions}
+                      onChange={(v) => {
                         const values = [...agendas];
-                        values[i] = e.target.value;
+                        values[i] = v;
                         update("Agendas", values);
                       }}
                     />
@@ -1534,16 +1608,6 @@ function RecordEditor({
                   )}
                 </div>
               ))}
-              <datalist id="available-agendas">
-                {enabledAgendas.map((r) => (
-                  <option key={r.agenda_code} value={r.agenda_code}>
-                    {r.agenda_name}
-                  </option>
-                ))}
-                {agendaNames.map((n) => (
-                  <option key={"n:" + n} value={n} />
-                ))}
-              </datalist>
               {form.Profesional && form.Establecimiento ? (
                 enabledAgendas.length ? (
                   <div className="v-agenda-suggest">
@@ -1833,6 +1897,26 @@ function RecordEditor({
           </p>
         )}
         {success && <p role="status">{success}</p>}
+        {confirmDelete && row && (
+          <div className="miss-panel" role="alertdialog" aria-label={t("Confirmar eliminación", "Confirm deletion")}>
+            <h3>
+              {t("¿Eliminar el bloqueo", "Delete block")} {String(row.Codigo_Bloqueo)}?
+            </h3>
+            <p>
+              {String(row.Profesional)} · {d(row.Fecha_Inicio)} — {d(row.Fecha_Termino)}.{" "}
+              {t(
+                "Dejará de aparecer y de contarse en los días de bloqueo y las agendas. Queda constancia en el historial y el código podrá registrarse de nuevo.",
+                "It will stop showing and counting in block days and agendas. The history keeps a record and the code can be registered again.",
+              )}
+            </p>
+            <button type="button" className="v-btn" disabled={busy} onClick={() => setConfirmDelete(false)}>
+              {t("Cancelar", "Cancel")}
+            </button>{" "}
+            <button type="button" className="v-btn danger solid" disabled={busy} onClick={() => void removeBlock()}>
+              {busy ? t("Eliminando…", "Deleting…") : t("Sí, eliminar", "Yes, delete")}
+            </button>
+          </div>
+        )}
         <footer className="v-form-actions">
           <button
             type="button"
@@ -1897,6 +1981,16 @@ function RecordEditor({
               }}
             >
               {t("Siguiente", "Next")} →
+            </button>
+          )}
+          {writable && row && (
+            <button
+              type="button"
+              className="v-btn danger"
+              disabled={!connected || busy || reading}
+              onClick={() => setConfirmDelete(true)}
+            >
+              🗑 {t("Eliminar bloqueo", "Delete block")}
             </button>
           )}
           {writable && (row || stage === 2) && (

@@ -89,6 +89,20 @@ export const demoCatalog: AgendaCatalog = {
       capacity: null,
       source_name: "Sintético",
     },
+    {
+      id: "a3",
+      period_id: "q4",
+      professional_id: "p1",
+      establishment: "Los Olivos",
+      agenda_name: "Consulta de demostración",
+      agenda_code: "demo1",
+      service_day: "2026-10-30",
+      starts_at: "08:00",
+      ends_at: "11:00",
+      capacity: 12,
+      source_name: "Sintético",
+      source_blocked: true,
+    },
   ],
 };
 export const demoBlocks = [

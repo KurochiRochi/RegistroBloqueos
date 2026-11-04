@@ -36,7 +36,7 @@ function client() {
 }
 export function explain(error: { message: string; code?: string }) {
   if (error.code === "23505")
-    return "El código SISMAULE ya está registrado, incluso si está archivado.";
+    return "El código SISMAULE ya está registrado en un bloqueo activo.";
   if (error.code === "42501")
     return "Tu perfil no permite realizar esta acción.";
   return error.message;
@@ -274,6 +274,20 @@ export async function saveRecord(
       "El registro cambió o tu perfil no permite editarlo. Actualiza la tabla; el formulario conserva tus datos.",
     );
   return result.data[0].id as string;
+}
+/** Elimina un bloqueo: queda archivado (con su historial) y deja de contarse y mostrarse. */
+export async function deleteRecord(old: RecordRow) {
+  const r = await client()
+    .from("bloqueos")
+    .update({ archived: 1, version: old.version + 1 })
+    .eq("id", old.id)
+    .eq("version", old.version)
+    .select("id");
+  if (r.error) throw new Error(explain(r.error));
+  if (!r.data?.length)
+    throw new Error(
+      "El registro cambió o tu perfil no permite eliminarlo. Actualiza la tabla e inténtalo de nuevo.",
+    );
 }
 export async function history(id?: string): Promise<EventRow[]> {
   let q = client()

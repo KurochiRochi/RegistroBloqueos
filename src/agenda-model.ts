@@ -297,3 +297,113 @@ export function unmatchedBlocks(
       ),
   );
 }
+
+// ---- v1.7 · Bloqueos hechos en la agenda (rojo) que no están registrados en Bloqueos ----
+export type SystemBlockLike = {
+  profesional: string;
+  establecimiento: string;
+  fecha_inicio: string;
+  fecha_termino: string;
+};
+export type MissingBlock = {
+  id: string;
+  professional: CatalogProfessional | undefined;
+  establishment: string;
+  agenda_name: string;
+  agenda_code: string;
+  from: string;
+  until: string;
+  sessionIds: string[];
+  starts_at: string | null;
+  ends_at: string | null;
+  attention: string;
+};
+const names = (p: CatalogProfessional | undefined) =>
+  p ? [p.name, ...(p.aliases || [])].map(key) : [];
+/**
+ * Sesiones marcadas BLOQUEADAS en el archivo de origen (rojo) sin un bloqueo registrado
+ * (ni en la app ni en un archivo del sistema) para ese profesional, establecimiento y día.
+ * Se agrupan por profesional + agenda en rangos de días consecutivos (los domingos no cortan).
+ */
+export function missingBlocks(
+  sessions: AgendaSession[],
+  professionals: CatalogProfessional[],
+  blocks: RecordRow[],
+  sys: SystemBlockLike[] = [],
+): MissingBlock[] {
+  const byId = new Map(professionals.map((p) => [p.id, p]));
+  const open = sessions
+    .filter((s) => s.source_blocked)
+    .filter((s) => {
+      const p = byId.get(s.professional_id);
+      if (relatedBlocks(s, p, blocks).length) return false;
+      const n = names(p);
+      // Un bloqueo registrado del mismo profesional y día, aunque la agenda se escriba distinto.
+      if (
+        blocks.some(
+          (b) =>
+            !b.archived &&
+            n.includes(key(b.Profesional)) &&
+            key(b.Establecimiento) === key(s.establishment) &&
+            String(b.Fecha_Inicio) <= s.service_day &&
+            String(b.Fecha_Termino) >= s.service_day,
+        )
+      )
+        return false;
+      return !sys.some(
+        (b) =>
+          n.includes(key(b.profesional)) &&
+          (!b.establecimiento || key(b.establecimiento) === key(s.establishment)) &&
+          b.fecha_inicio &&
+          b.fecha_inicio <= s.service_day &&
+          (b.fecha_termino || b.fecha_inicio) >= s.service_day,
+      );
+    })
+    .sort((a, b) => a.service_day.localeCompare(b.service_day));
+  const groups = new Map<string, AgendaSession[]>();
+  for (const s of open) {
+    const k = [s.professional_id, s.establishment, key(s.agenda_name)].join("|");
+    groups.set(k, [...(groups.get(k) || []), s]);
+  }
+  const out: MissingBlock[] = [];
+  for (const [k, list] of groups) {
+    let run: AgendaSession[] = [];
+    const flush = () => {
+      if (!run.length) return;
+      const first = run[0];
+      const starts = new Set(run.map((s) => s.starts_at || ""));
+      const ends = new Set(run.map((s) => s.ends_at || ""));
+      out.push({
+        id: k + "|" + first.service_day,
+        professional: byId.get(first.professional_id),
+        establishment: first.establishment,
+        agenda_name: first.agenda_name,
+        agenda_code: first.agenda_code,
+        from: first.service_day,
+        until: run[run.length - 1].service_day,
+        sessionIds: run.map((s) => s.id),
+        starts_at: starts.size === 1 ? first.starts_at : null,
+        ends_at: ends.size === 1 ? first.ends_at : null,
+        attention: first.attention || "",
+      });
+      run = [];
+    };
+    for (const s of list) {
+      const prev = run[run.length - 1];
+      if (prev) {
+        const gap = dates(shift(prev.service_day, 1), shift(s.service_day, -1));
+        const contiguous =
+          s.service_day === prev.service_day ||
+          gap.every((d) => new Date(d + "T00:00:00Z").getUTCDay() === 0);
+        if (!contiguous) flush();
+      }
+      run.push(s);
+    }
+    flush();
+  }
+  return out.sort(
+    (a, b) =>
+      a.from.localeCompare(b.from) ||
+      (a.professional?.name || "").localeCompare(b.professional?.name || ""),
+  );
+}

@@ -1,4 +1,4 @@
-# Registro de bloqueos 1.5
+# Registro de bloqueos 1.7
 
 Aplicación independiente: https://registro-de-bloqueos.pages.dev/
 React + TypeScript + Vite. Datos y autenticación en Supabase; archivos en un bucket privado. Alojamiento Cloudflare Pages. No requiere ChatGPT ni un computador encendido como servidor.

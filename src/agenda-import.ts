@@ -418,7 +418,10 @@ export function expandRules(
       b = r.ends_on < until ? r.ends_on : until;
     for (const day of dates(a, b))
       if (new Date(day + "T00:00:00Z").getUTCDay() === r.weekday) {
-        const end = minutes(r.starts_at) + r.interval_minutes;
+        // Ingreso manual: el detalle son «cupos» seguidos cada «intervalo» minutos.
+        const end =
+          minutes(r.starts_at) +
+          r.interval_minutes * ((r.id || "").startsWith("manual:") ? r.capacity : 1);
         const endTime = `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`;
         slots.push({
           id: r.id + "|" + day,
@@ -429,7 +432,7 @@ export function expandRules(
           agenda_code: r.agenda_code,
           service_day: day,
           starts_at: r.starts_at,
-          ends_at: r.capacity === 1 ? endTime : null,
+          ends_at: r.capacity === 1 || (r.id || "").startsWith("manual:") ? endTime : null,
           capacity: r.capacity,
           source_name: r.source_name || "",
           source_blocked: r.source_blocked,

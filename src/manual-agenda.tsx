@@ -13,6 +13,7 @@ import type {
 } from "./agenda-model.ts";
 import { chileToday, professionalKey as key } from "./model.ts";
 import { useLanguage } from "./language.ts";
+import { Combo } from "./combo.tsx";
 
 const DAYS: [number, string][] = [
   [1, "LUNES"],
@@ -253,14 +254,17 @@ export function SisAgendaEntry({
                   if (p) setPerson(p.name);
                 }}
               />
-              <input
-                list="sis-people"
-                aria-label={t("Nombre del recurso", "Resource name")}
+              <Combo
+                label={t("Nombre del recurso", "Resource name")}
                 value={person}
                 placeholder={t("Escribe apellido y elige…", "Type surname and pick…")}
-                onChange={(e) => {
-                  setPerson(e.target.value);
-                  const p = people.find((x) => key(x.name) === key(e.target.value));
+                options={people.map((p) => ({
+                  value: p.name,
+                  hint: [p.profession, p.establishments.join(", ")].filter(Boolean).join(" · "),
+                }))}
+                onChange={(v) => {
+                  setPerson(v);
+                  const p = people.find((x) => key(x.name) === key(v));
                   setCode(p?.resource_code || "");
                   if (p && !unit && p.establishments.length === 1) setUnit(p.establishments[0]);
                 }}
@@ -268,13 +272,6 @@ export function SisAgendaEntry({
               <span className="sis-lupa" aria-hidden>
                 🔍
               </span>
-              <datalist id="sis-people">
-                {people.map((p) => (
-                  <option key={p.id} value={p.name}>
-                    {[p.profession, p.establishments.join(", ")].filter(Boolean).join(" · ")}
-                  </option>
-                ))}
-              </datalist>
             </div>
             <label>{t("Unidad de atención", "Care unit")}</label>
             <select value={unit} onChange={(e) => setUnit(e.target.value)}>
@@ -717,22 +714,17 @@ export function SisAgendaEntry({
                 value={headerDlg.form.agenda_code}
                 onChange={(e) => setHeaderDlg({ ...headerDlg, form: { ...headerDlg.form, agenda_code: e.target.value } })}
               />
-              <input
+              <Combo
                 required
-                list="sis-agendas"
-                aria-label={t("Nombre de agenda", "Agenda name")}
+                label={t("Nombre de agenda", "Agenda name")}
                 maxLength={250}
                 value={headerDlg.form.agenda_name}
-                onChange={(e) => setHeaderDlg({ ...headerDlg, form: { ...headerDlg.form, agenda_name: e.target.value } })}
+                options={agendaNames.map((n) => ({ value: n }))}
+                onChange={(v) => setHeaderDlg({ ...headerDlg, form: { ...headerDlg.form, agenda_name: v } })}
               />
               <span className="sis-lupa" aria-hidden>
                 🔍
               </span>
-              <datalist id="sis-agendas">
-                {agendaNames.map((n) => (
-                  <option key={n} value={n} />
-                ))}
-              </datalist>
             </div>
             <label>Fecha Inicio</label>
             <input type="date" required value={headerDlg.form.starts_on} onChange={(e) => setHeaderDlg({ ...headerDlg, form: { ...headerDlg.form, starts_on: e.target.value } })} />
