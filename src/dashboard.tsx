@@ -386,7 +386,7 @@ export function Dashboard({
             Salud Comunal<small>Municipalidad de Parral</small>
           </span>
         </a>
-        <small className="v-version">Registro de bloqueos · 1.5</small>
+        <small className="v-version">Registro de bloqueos · 1.6</small>
         <nav aria-label={t("Navegación principal", "Main navigation")}>
           {nav
             .filter(([name]) => name !== "Pacientes citados" || writer)
@@ -864,7 +864,7 @@ export function Dashboard({
         </main>
         {!preview && profile && <Feedback page={view} />}
         <footer className="v-footer">
-          Registro de bloqueos · 1.5{" "}
+          Registro de bloqueos · 1.6{" "}
           <span>
             {t(
               "Lunes a sábado; sin domingos ni feriados.",
